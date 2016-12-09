@@ -134,3 +134,196 @@ method.getParameters();
 Constructor constructor = ...;
 constructor.getParameters();
 ```
+## Java7
+### [*二进制字面常量](http://docs.oracle.com/javase/8/docs/technotes/guides/language/binary-literals.html)
+可以使用二进制字面常量来表达整形类型(byte, short, int, long), 以0b(0B)作为前缀
+```java
+System.out.println(0b11); // 3
+System.out.println(0B111); // 7
+```
+### [*字面常量数字的下划线](http://docs.oracle.com/javase/8/docs/technotes/guides/language/underscores-literals.html)
+在数字常量中可以使用下划线来提高数字的可读性, 不能将下划线添加在数字头尾部
+```java
+System.out.println(11_1); // 111
+System.out.println(011_1); // 73
+System.out.println(0x11_1); // 273
+System.out.println(0B11_1); // 7
+```
+
+### [*String类可以用于switch语句](http://docs.oracle.com/javase/8/docs/technotes/guides/language/strings-switch.html)
+这里case语句中的statement只能使用常量字符串
+```java
+String str = new String("aaa");
+switch (str) {
+    case "aaa":
+        System.out.println(true);
+        break;
+    case "bbb":
+        System.out.println(false);
+        break;
+    default:
+        break;
+}
+```
+
+### [*泛型实例创建的类型推断](http://docs.oracle.com/javase/8/docs/technotes/guides/language/type-inference-generic-instance-creation.html)
+只要编译器可以根据上下文推断出泛型实例的类型参数, 在调用泛型类型的构造器时可以用<>(学名叫做菱形"diamond")来替代指定类型参数.
+```java
+List<Integer> integerList = new ArrayList<>();
+```
+### [*优化变长参数的方法调用](http://docs.oracle.com/javase/8/docs/technotes/guides/language/non-reifiable-varargs.html)
+在变长参数中使用不可具体化的类型(例如List<String>)时, 编译器会报出警告, 该警告可以被
+``` java
+@SafeVarargs
+```
+和
+``` java
+@SuppressWarnings({"unchecked", "varargs"})
+```
+抑制.
+```java
+
+//Main.java
+...
+    public static void main(String[] args) {
+        List<String> a = new ArrayList<String>();
+        fun(a, a);
+    }
+
+    public static <T> T fun(T... args) {
+        for (T t : args) {
+            System.out.println(t);
+        }
+        return args[0];
+    }
+...
+```
+使用java6 编译Main.java 加上 -Xlint:unchecked参数
+``` bash
+jdk1.6.0_45\bin\javac.exe -Xlint:unchecked Main.java
+Main.java:38: 警告：[unchecked] 对于 varargs 参数，类型 java.util.List<java.lang.String>[] 的泛型数组创建未经检查
+        fun(a, a);
+           ^
+1 警告
+```
+使用java7 编译Main.java 加上 -Xlint:unchecked参数
+``` bash
+jdk1.7.0_80\bin\javac.exe -Xlint:unchecked Main.java
+Main.java:32: 警告: [unchecked] 对于类型为List<String>[]的 varargs 参数, 泛型数组创建未经过检查
+        fun(a, a);
+           ^
+Main.java:35: 警告: [unchecked] 参数化 vararg 类型T的堆可能已受污染
+    public static <T> T fun(T... args) {
+                                 ^
+  其中, T是类型变量:
+    T扩展已在方法 <T>fun(T...)中声明的Object
+2 个警告
+```
+添加 @SafeVarargs
+``` java
+@SafeVarargs
+public static <T> T fun(T... args) {
+    for (T t : args) {
+        System.out.println(t);
+    }
+    return args[0];
+}
+```
+编译器警告消失
+
+添加 @SuppressWarnings({"unchecked", "varargs"}), 
+``` bash
+jdk1.7.0_80\bin\javac.exe -Xlint:unchecked Main.java
+Main.java:32: 警告: [unchecked] 对于类型为List<String>[]的 varargs 参数, 泛型数组创建未经过检查
+        fun(a, a);
+           ^
+1 个警告
+```
+### [*try_with_resource](http://docs.oracle.com/javase/8/docs/technotes/guides/language/try-with-resources.html)
+使用try_with_resource语句, 可以对实现了AutoCloseable(java7 加入的接口, 原有的Closeable成为它的子类) 的资源进行自动关闭, 而不用手动在finally语句块中关闭.
+
+```java
+//常规写法
+static String readFirstLineFromFileWithFinallyBlock(String path) throws IOException {
+  BufferedReader br = new BufferedReader(new FileReader(path));
+  try {
+    return br.readLine();
+  } finally {
+    if (br != null) br.close();
+  }
+}
+
+//try_with_resource
+static String readFirstLineFromFile(String path) throws IOException {
+  try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+    return br.readLine();
+  }
+}
+
+//try_with_resource
+public static void writeToFileZipFileContents(String zipFileName, String outputFileName)
+        throws java.io.IOException {
+
+    java.nio.charset.Charset charset = java.nio.charset.StandardCharsets.US_ASCII;
+    java.nio.file.Path outputFilePath = java.nio.file.Paths.get(outputFileName);
+
+    // Open zip file and create output file with try-with-resources statement
+
+    try (
+            java.util.zip.ZipFile zf = new java.util.zip.ZipFile(zipFileName);
+            java.io.BufferedWriter writer = java.nio.file.Files.newBufferedWriter(outputFilePath, charset)
+    ) {
+
+        // Enumerate each entry
+
+        for (java.util.Enumeration entries = zf.entries(); entries.hasMoreElements(); ) {
+
+            // Get the entry name and write it to the output file
+
+            String newLine = System.getProperty("line.separator");
+            String zipEntryName = ((java.util.zip.ZipEntry) entries.nextElement()).getName() + newLine;
+            writer.write(zipEntryName, 0, zipEntryName.length());
+        }
+    }
+}
+```
+这里需要注意的是: 
+* 若try语句块抛出异常, 则在try_with_resource关闭资源调用AutoCloseable.close()时抛出的IOException会被抑制, catch到的异常将是try语句块抛出的异常. 这里可以调用Throwable.getSuppressed()获取被抑制的异常. 
+* 在使用finally语句块中关闭资源时, 若try语句块抛出了异常, 则在finally语句块中抛出的IOException异常会覆盖掉try语句块中抛出的异常.
+* Closeable 是java5加入的关闭资源的方法, 多次调用Closeable.close()关闭资源不会引发错误
+* AutoCloseable 是java7加入的关闭资源的方法, 仅允许调用一次AutoCloseable.close();
+
+### [* 多重异常捕获&优化对重抛出异常的类型检查](http://docs.oracle.com/javase/8/docs/technotes/guides/language/catch-multiple.html)
+多重异常捕获
+```java
+//之前的写法
+catch (IOException ex) {
+     logger.log(ex);
+     throw ex;
+} catch (SQLException ex) {
+     logger.log(ex);
+     throw ex;
+}
+
+//现在可以这样写
+catch (IOException|SQLException ex) {
+    logger.log(ex);
+    throw ex;
+}
+```
+重抛出更精确描述的异常, 在java7之前的版本不允许这样写
+```java
+public void rethrowException(String exceptionName)
+        throws IOException, NullPointerException {
+    try {
+    }
+    catch (Exception e) {
+        //在这里重抛出类型只能为IOException, NullPointerException, 
+        //若有其他类型, 必须在throw子句中声明
+        throw e;
+    }
+}
+```
+
+## Java6
+java6 在语言方面没有改动, 主要改动在新增了一些包之类的.
