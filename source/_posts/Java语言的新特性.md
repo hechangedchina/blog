@@ -81,7 +81,7 @@ default Stream<E> stream();
 为集合提供流操作
 
 ### *改进的[类型推断](http://docs.oracle.com/javase/tutorial/java/generics/genTypeInference.html)
-现在类型推断可以通过目标类型推断出泛型方法调用的类型参数. Java7可以对赋值语句使用类型推断, 而在Java8中会对更多的上下文对目标类型进行类型推断.
+现在类型推断可以通过目标类型推断出泛型方法调用的类型参数. Java7可以对赋值语句使用类型推断, 而在Java8中会对更多的上下文中的目标类型进行类型推断.
 
 ```java
 List<String> stringList = new ArrayList<>(); //Java7特性: 对泛型实例创建进行类型推断
@@ -327,3 +327,196 @@ public void rethrowException(String exceptionName)
 
 ## Java6
 java6 在语言方面没有改动, 主要改动在新增了一些包之类的.
+
+## Java5
+### [*泛型](http://docs.oracle.com/javase/8/docs/technotes/guides/language/generics.html)
+这种期待已久的对类型系统的增强允许类型或方法对各种类型的对象进行操作，同时提供编译时类型的安全性。它将编译器类型安全添加到集合框架中, 消除了类型转换的苦差事.  
+Java中的泛型和C++的模板看上去很相似, 但这相似性是肤浅的: Java的泛型的实现机制是类型擦除, 并不支持泛型对象实例化以及模板元编程.
+
+Java5之前的集合操作写法
+```java
+// Removes 4-letter words from c. Elements must be strings
+static void expurgate(Collection c) {
+    for (Iterator i = c.iterator(); i.hasNext(); )
+      if (((String) i.next()).length() == 4)
+        i.remove();
+}
+```
+使用泛型的集合操作
+```java
+// Removes the 4-letter words from c
+static void expurgate(Collection<String> c) {
+    for (Iterator<String> i = c.iterator(); i.hasNext(); )
+      if (i.next().length() == 4)
+        i.remove();
+}
+```
+更多的泛型方面资料需参考官方文档和书籍学习.
+### [*For-each](http://docs.oracle.com/javase/8/docs/technotes/guides/language/foreach.html)
+这个循环的新特性能让你更方便的迭代遍历数组和集合
+Java5之前的写法
+```java
+void cancelAll(Collection<TimerTask> c) {
+    for (Iterator<TimerTask> i = c.iterator(); i.hasNext(); )
+        i.next().cancel();
+}
+for (Iterator i = suits.iterator(); i.hasNext(); ) {
+    Suit suit = (Suit) i.next();
+    for (Iterator j = ranks.iterator(); j.hasNext(); )
+        sortedDeck.add(new Card(suit, j.next()));
+}
+```
+ForEach写法
+```java
+void cancelAll(Collection<TimerTask> c) {
+    for (TimerTask t : c)
+        t.cancel();
+}
+for (Suit suit : suits)
+    for (Rank rank : ranks)
+        sortedDeck.add(new Card(suit, rank));
+```
+数组的ForEach操作
+```java
+int sum(int[] a) {
+    int result = 0;
+    for (int i : a)
+        result += i;
+    return result;
+}
+```
+### [*自动装箱/拆箱](https://docs.oracle.com/javase/tutorial/java/data/autoboxing.html)
+Java5会在需要的时候自动在基本类型和相应的包装类型之间进行转换
+
+```java
+List<Integer> li = new ArrayList<>();
+for (int i = 1; i < 50; i += 2)
+    li.add(i);
+
+public static int sumEven(List<Integer> li) {
+    int sum = 0;
+    for (Integer i: li)
+        if (i % 2 == 0)
+            sum += i;
+        return sum;
+}
+```
+其实是
+```java
+List<Integer> li = new ArrayList<>();
+for (int i = 1; i < 50; i += 2)
+    li.add(Integer.valueOf(i));
+
+public static int sumEven(List<Integer> li) {
+    int sum = 0;
+    for (Integer i : li)
+        if (i.intValue() % 2 == 0)
+            sum += i.intValue();
+        return sum;
+}
+```
+这个转换过程被编译器自动完成了
+
+### [*类型安全枚举](http://docs.oracle.com/javase/8/docs/technotes/guides/language/enums.html)
+在java的以往版本中实现枚举模式通常使用整形常数, 这会带来很多问题:
+* 类型不安全: 它可以当做数字使用
+* 无名字空间: 必须在名字上添加前缀以同其他枚举区分
+* 较脆弱: 如果改变了枚举的顺序或者增加新的枚举, 就需要重新编译所有代码以保证不会出现未定义行为
+* 不直观: 输出枚举值的Log打印出来的仅仅只是int, 不能直观的表达任何信息
+
+新增的关键字enum可以定义一个无法被实例化和继承(final)的类, 在这个类里可以定义一系列作为枚举值的常量供用户使用. 类型安全枚举的好处:
+* 枚举常量是枚举类的实例, 他是类型安全且不会和其他枚举类型发生冲突的. 
+* 增加了新的枚举常量也不会影响到原有代码的正常工作
+* 枚举常量使用toString()可以输出直接常量字面值, 更加直观.
+* 用户可以在枚举类中定义一些枚举变量可以使用的方法, 让程序逻辑更加清晰.
+
+```java
+public enum Operation {
+  PLUS   { double eval(double x, double y) { return x + y; } },
+  MINUS  { double eval(double x, double y) { return x - y; } },
+  TIMES  { double eval(double x, double y) { return x * y; } },
+  DIVIDE { double eval(double x, double y) { return x / y; } };
+
+  // Do arithmetic op represented by this constant
+  abstract double eval(double x, double y);
+}
+public static void main(String args[]) {
+    double x = Double.parseDouble(args[0]);
+    double y = Double.parseDouble(args[1]);
+    for (Operation op : Operation.values())
+        System.out.printf("%f %s %f = %f%n", x, op, y, op.eval(x, y));
+}
+```
+```bash
+
+$ java Operation 4 2
+4.000000 PLUS 2.000000 = 6.000000
+4.000000 MINUS 2.000000 = 2.000000
+4.000000 TIMES 2.000000 = 8.000000
+4.000000 DIVIDE 2.000000 = 2.000000
+```
+在Effective Java的第21条提到用类代替enum结构, 其内容讲的就是实现一种"类型安全枚举"的模型, 用这种更安全的枚举模型来替代原有的类C语言的枚举.而Java5直接在语言层面实现了这种类型安全的枚举模型.在没有极其苛刻的性能要求的情况下(如果你的JVM不是运行在蜂窝电话或者烤面包机上),类型安全枚举带来的额外开销(装载枚举类以及构造常量对象)不会引起用户注意.
+
+### [*变长参数](http://docs.oracle.com/javase/8/docs/technotes/guides/language/varargs.html)
+方法调用的最后一个参数允许使用变长参数, 消除了用户手动创建数组打包参数传入方法的痛苦.
+
+Java5以前想要格式化字符串只能这样写
+```java
+Object[] arguments = {
+    new Integer(7),
+    new Date(),
+    "a disturbance in the Force"
+};
+
+String result = MessageFormat.format(
+    "At {1,time} on {1,date}, there was {2} on planet "
+     + "{0,number,integer}.", arguments);
+```
+而现在
+```java
+String result = MessageFormat.format(
+    "At {1,time} on {1,date}, there was {2} on planet "
+    + "{0,number,integer}.",
+    7, new Date(), "a disturbance in the Force");
+```
+在Java5里String类基于变长参数的特性提供了新的api, format(). 如果阅读一下源码会发现它直接调用MessageFormat.format()做格式串生成.
+```java
+public static String format(String pattern,
+                                Object... arguments);
+```
+
+### [*静态导入](http://docs.oracle.com/javase/8/docs/technotes/guides/language/static-import.html)
+导入类内所有静态成员到当前名字空间, 不需要添加类前缀即可引用被导入的静态成员. 官方建议谨慎和适当的使用静态导入以免污染名字空间以及破坏程序的可读性和可维护性.
+
+```java
+double r = Math.cos(Math.PI * theta);
+
+import static java.lang.Math.*;
+double r = cos(PI * theta);
+```
+
+### [*注解](http://docs.oracle.com/javase/8/docs/technotes/guides/language/annotations.html)
+这个新特性可以让程序员在代码中使用声明式编程: 在代码中添加注解, 用工具从注解中生成代码. 这种特性可以极大的减少程序员的工作量. 参考库ButterKnife. 此外程序本身也可以通过反射获取属性和方法的注解信息.
+定义注解以及使用: 
+```java
+public @interface RequestForEnhancement {
+    int    id();
+    String synopsis();
+    String engineer() default "[unassigned]"; 
+    String date()    default "[unimplemented]"; 
+}
+
+@RequestForEnhancement(
+    id       = 2868724,
+    synopsis = "Enable time-travel",
+    engineer = "Mr. Peabody",
+    date     = "4/1/3007"
+)
+public static void travelThroughTime(Date destination) { ... }
+```
+更多的注解方面资料需参考官方文档和书籍学习.
+
+
+-------
+
+感想: Java5之前的Java程序员真辛苦
